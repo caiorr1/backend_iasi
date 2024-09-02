@@ -1,0 +1,49 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Diretório de dependências do Node.js
+node_modules/
+
+# Arquivos de ambiente e configuração
+.env
+
+# Diretórios de bancos de dados locais
+*.sqlite
+*.sqlite3
+*.db
+*.tgz
+
+# Diretórios temporários do sistema
+.DS_Store
+Thumbs.db
+
+# Configurações de IDE
+.vscode/
+.idea/
+
+# Diretórios de cache
+.cache/
+.npm/
+
+# Outras pastas de build/depuração
+dist/
+build/
+coverage/
+tmp/
+temp/
+out/
+
+# Arquivos de lock de pacotes
+package-lock.json
+yarn.lock
+
+# Arquivos de configuração de deploy
+.env.*
+*.local
+
+# Diretório de uploads temporários (caso existam)
+uploads/
