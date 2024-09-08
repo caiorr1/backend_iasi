@@ -130,6 +130,37 @@ app.put('/usuario/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// Rota para redefinir a senha usando o email e a nova senha
+app.post('/redefinir-senha', async (req, res) => {
+    const { email, newPassword } = req.body;
+
+    try {
+        // Verifica se o usuário com o email fornecido existe
+        db.get("SELECT * FROM usuarios WHERE email = ?", [email], async (err, user) => {
+            if (err) {
+                return res.status(500).json({ error: 'Erro ao acessar o banco de dados.' });
+            }
+            if (!user) {
+                return res.status(404).json({ error: 'Usuário não encontrado.' });
+            }
+
+            // Gera o hash da nova senha
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+            // Atualiza a senha no banco de dados
+            db.run("UPDATE usuarios SET password = ? WHERE email = ?", [hashedPassword, email], function(err) {
+                if (err) {
+                    return res.status(500).json({ error: 'Erro ao atualizar a senha.' });
+                }
+                res.status(200).json({ message: 'Senha alterada com sucesso!' });
+            });
+        });
+    } catch (error) {
+        console.error('Erro ao redefinir senha:', error);
+        res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Servidor rodando na porta http://localhost:${PORT}`);
 });
