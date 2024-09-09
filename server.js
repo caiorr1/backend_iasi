@@ -5,25 +5,40 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const app = express();
-app.use(cors()); // Habilita CORS
-app.use(express.json()); // Middleware para parsear JSON
+app.use(cors());
+app.use(express.json());
 
 const PORT = 3000;
-const SECRET_KEY = 'seuSecretSuperSecreto'; // Substitua pela sua chave secreta real
+const SECRET_KEY = 'seuSecretSuperSecreto';
 
 const db = new sqlite3.Database('banco-de-dados.db', sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
     if (err) {
         console.error('Erro ao conectar ao banco de dados SQLite', err.message);
     } else {
         console.log('Conectado ao banco de dados SQLite.');
+
+        // Criação da tabela de usuários
         db.run("CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, password TEXT)");
+
+        // Criação da tabela de indústrias
+        db.run(`CREATE TABLE IF NOT EXISTS industrias (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            endereco TEXT NOT NULL,
+            eficiencia_geral INTEGER,
+            reducao_gastos INTEGER,
+            reducao_pegada_carbono INTEGER,
+            uso_energia_renovavel INTEGER,
+            usuario_id INTEGER,
+            FOREIGN KEY(usuario_id) REFERENCES usuarios(id)
+        )`);
     }
 });
 
 // Middleware para verificar o token JWT
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.status(401).send({ error: 'Acesso negado' });
 
     jwt.verify(token, SECRET_KEY, (err, user) => {
@@ -39,7 +54,7 @@ function authenticateToken(req, res, next) {
 app.post('/registro', async (req, res) => {
     const { email, password } = req.body;
     try {
-        const hashedPassword = await bcrypt.hash(password, 10); // Hash da senha com bcrypt
+        const hashedPassword = await bcrypt.hash(password, 10);
         const sql = `INSERT INTO usuarios (email, password) VALUES (?, ?)`;
         db.run(sql, [email, hashedPassword], function(err) {
             if (err) {
@@ -67,7 +82,7 @@ app.post('/login', async (req, res) => {
         if (!senhaValida) {
             return res.status(401).json({ error: 'Senha incorreta' });
         }
-        const token = jwt.sign({ id: user.id }, SECRET_KEY, { expiresIn: '1h' }); // Gera o token com validade de 1 hora
+        const token = jwt.sign({ id: user.id }, SECRET_KEY, { expiresIn: '1h' });
         res.json({ token });
     });
 });
@@ -135,7 +150,6 @@ app.post('/redefinir-senha', async (req, res) => {
     const { email, newPassword } = req.body;
 
     try {
-        // Verifica se o usuário com o email fornecido existe
         db.get("SELECT * FROM usuarios WHERE email = ?", [email], async (err, user) => {
             if (err) {
                 return res.status(500).json({ error: 'Erro ao acessar o banco de dados.' });
@@ -144,10 +158,8 @@ app.post('/redefinir-senha', async (req, res) => {
                 return res.status(404).json({ error: 'Usuário não encontrado.' });
             }
 
-            // Gera o hash da nova senha
             const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-            // Atualiza a senha no banco de dados
             db.run("UPDATE usuarios SET password = ? WHERE email = ?", [hashedPassword, email], function(err) {
                 if (err) {
                     return res.status(500).json({ error: 'Erro ao atualizar a senha.' });
@@ -159,6 +171,22 @@ app.post('/redefinir-senha', async (req, res) => {
         console.error('Erro ao redefinir senha:', error);
         res.status(500).json({ error: 'Erro interno do servidor.' });
     }
+});
+
+// Rota para adicionar uma nova indústria
+app.post('/industrias', authenticateToken, (req, res) => {
+    const { nome, endereco, eficiencia_geral, reducao_gastos, reducao_pegada_carbono, uso_energia_renovavel } = req.body;
+    const usuario_id = req.user.id; // ID do usuário autenticado
+
+    const sql = `INSERT INTO industrias (nome, endereco, eficiencia_geral, reducao_gastos, reducao_pegada_carbono, uso_energia_renovavel, usuario_id) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+    db.run(sql, [nome, endereco, eficiencia_geral, reducao_gastos, reducao_pegada_carbono, uso_energia_renovavel, usuario_id], function(err) {
+        if (err) {
+            return res.status(500).json({ error: 'Erro ao adicionar a indústria.' });
+        }
+        res.status(201).json({ message: 'Indústria adicionada com sucesso!', industriaId: this.lastID });
+    });
 });
 
 app.listen(PORT, () => {
