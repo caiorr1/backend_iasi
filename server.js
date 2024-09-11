@@ -178,17 +178,65 @@ app.post('/industrias', authenticateToken, (req, res) => {
     const { nome, endereco, eficiencia_geral, reducao_gastos, reducao_pegada_carbono, uso_energia_renovavel } = req.body;
     const usuario_id = req.user.id; // ID do usuário autenticado
 
+    // Verifique se todos os campos estão preenchidos
+    if (!nome || !endereco || !eficiencia_geral || !reducao_gastos || !reducao_pegada_carbono || !uso_energia_renovavel) {
+        console.log('Campos faltando na requisição:', req.body);
+        return res.status(400).json({ error: 'Por favor, preencha todos os campos.' });
+    }
+
     const sql = `INSERT INTO industrias (nome, endereco, eficiencia_geral, reducao_gastos, reducao_pegada_carbono, uso_energia_renovavel, usuario_id) 
                  VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
     db.run(sql, [nome, endereco, eficiencia_geral, reducao_gastos, reducao_pegada_carbono, uso_energia_renovavel, usuario_id], function(err) {
         if (err) {
+            console.error('Erro ao adicionar a indústria:', err.message);
             return res.status(500).json({ error: 'Erro ao adicionar a indústria.' });
         }
+        console.log('Indústria adicionada com sucesso!', { industriaId: this.lastID });
         res.status(201).json({ message: 'Indústria adicionada com sucesso!', industriaId: this.lastID });
     });
 });
-
 app.listen(PORT, () => {
     console.log(`Servidor rodando na porta http://localhost:${PORT}`);
+});
+
+// Rota para listar todas as indústrias de um usuário autenticado
+app.get('/industrias', authenticateToken, (req, res) => {
+    const usuario_id = req.user.id; // ID do usuário autenticado
+
+    const sql = `SELECT * FROM industrias WHERE usuario_id = ?`;
+
+    db.all(sql, [usuario_id], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: 'Erro ao acessar o banco de dados.' });
+        }
+        res.status(200).json({ industrias: rows });
+    });
+});
+
+// Rota para editar uma indústria existente
+app.put('/industrias/:id', authenticateToken, (req, res) => {
+    const { id } = req.params; // ID da indústria a ser editada
+    const { nome, endereco, eficiencia_geral, reducao_gastos, reducao_pegada_carbono, uso_energia_renovavel } = req.body;
+    const usuario_id = req.user.id; // ID do usuário autenticado
+
+    const sql = `
+        UPDATE industrias 
+        SET nome = ?, endereco = ?, eficiencia_geral = ?, reducao_gastos = ?, reducao_pegada_carbono = ?, uso_energia_renovavel = ?
+        WHERE id = ? AND usuario_id = ?
+    `;
+
+    db.run(
+        sql,
+        [nome, endereco, eficiencia_geral, reducao_gastos, reducao_pegada_carbono, uso_energia_renovavel, id, usuario_id],
+        function(err) {
+            if (err) {
+                return res.status(500).json({ error: 'Erro ao editar a indústria.' });
+            }
+            if (this.changes === 0) {
+                return res.status(404).json({ error: 'Indústria não encontrada ou você não tem permissão para editá-la.' });
+            }
+            res.status(200).json({ message: 'Indústria editada com sucesso!' });
+        }
+    );
 });
